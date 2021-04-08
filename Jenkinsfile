@@ -1,23 +1,24 @@
-node {
-    properties([parameters([string(defaultValue: 'madhu', description: '', name: 'name', trim: false)])])
-   def mvnHome
-   stage('Preparation') { // for display purposes
-     checkout([$class: 'GitSCM', branches: [[name: '*/master']], doGenerateSubmoduleConfigurations: false, extensions: [], submoduleCfg: [], userRemoteConfigs: [[url: 'https://github.com/linuxacademy/content-cje-prebuild.git']]])
-           
-      mvnHome = tool 'maven'
-   }
-   stage('Build') {
-      // Run the maven build
-      if (isUnix()) {
-         sh "'${mvnHome}/bin/mvn' -Dmaven.test.failure.ignore clean package"
-      } else {
-         bat(/"${mvnHome}\bin\mvn" -Dmaven.test.failure.ignore clean package/)
+pipeline {
+  agent any 
+  tools {
+    maven 'M3'
+    jdk 'jdk11'
+  }
+  stages {
+      stage ('Build') {
+        steps {
+          sh 'mvn -Dmaven.test.failure.ignore=true install'
+        }
       }
-   }
-   stage('Post Job'){
-       sh 'bin/makeindex'
-   }
-   stage('Results') {
-      archiveArtifacts 'index.jsp'
-   }
+      stage('Sonar') {
+        steps {
+          script {
+            def scannerHome = tool 'sonarqube'
+            withSonarQubeEnv('sonarqube') {
+              sh "${scannerHome}/bin/sonar-scanner"
+            }
+          }
+        }
+      }
+  }
 }
